@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KICKMATE（サッカー将棋）v1.7</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; font-family: -apple-system, "Hiragino Sans", sans-serif; background: #060b14; color: #eef3fa; }
+  body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background:
+    radial-gradient(420px 300px at 8% -4%, rgba(255,190,90,.30), transparent 60%),
+    radial-gradient(420px 300px at 92% -4%, rgba(255,190,90,.30), transparent 60%),
+    radial-gradient(320px 220px at 50% 108%, rgba(90,140,255,.14), transparent 60%),
+    radial-gradient(rgba(255,205,120,.13) 1.5px, transparent 1.7px),
+    radial-gradient(rgba(255,255,255,.09) 1.2px, transparent 1.4px),
+    linear-gradient(180deg, #0a1424, #060b14);
+    background-size: auto, auto, auto, 90px 90px, 70px 70px, auto;
+    background-position: 0 0, 0 0, 0 0, 0 0, 34px 40px, 0 0; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 10px 10px 28px; position: relative; z-index: 1; }
+  h1 { font-size: 19px; margin: 6px 0 2px; text-align: center; letter-spacing: .12em; color: #f0d089; text-shadow: 0 2px 12px rgba(240,208,137,.30); }
+  .sub { text-align: center; font-size: 11px; color: #b39b5e; margin-bottom: 8px; }
+  .score { display: flex; align-items: center; justify-content: space-between; background: linear-gradient(180deg, #131f38, #0d1830); border: 1px solid #a87f2e; border-radius: 12px; padding: 8px 12px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .score .team { font-weight: 700; font-size: 14px; }
+  .score .num { font-size: 26px; font-weight: 800; padding: 0 6px; }
+  .blue { color: #6db3ff; } .red { color: #ff7d6d; }
+  .turn { text-align: center; font-size: 12px; }
+  .turn b { font-size: 14px; }
+  .ballchip { text-align: center; font-size: 12px; background: #0d1830; border: 1px solid #6d5a22; border-radius: 8px; padding: 5px 2px; margin-top: 6px; }
+  #chainBadge { display: none; margin-left: 6px; background: #7a4a00; color: #ffd94d; border: 1px solid #ffd94d; border-radius: 999px; padding: 1px 8px; font-weight: 800; font-size: 11px; }
+  .goalrow { display: grid; grid-template-columns: repeat(9, 1fr); gap: 0; margin: 4px 0; }
+  .goalSq { aspect-ratio: 1.6; border: 2px solid #e8f2ff; border-bottom: none; border-left: none; border-right: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,.25) 0 2px, transparent 2px 7px), repeating-linear-gradient(90deg, rgba(255,255,255,.25) 0 2px, transparent 2px 7px), #5b6b7d; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.7); text-align: center; }
+  .goalSq.gfirst { border-left: 2px solid #e8f2ff; }
+  .goalSq.glast { border-right: 2px solid #e8f2ff; }
+  .goalrow.bottom .goalSq { border-bottom: 2px solid #e8f2ff; border-top: none; }
+  .goalSq.redgoal { border-color: #ff9d8f; }
+  .goalSq.bluegoal { border-color: #8fc4ff; }
+  .goalSq.target { background-color: #14532d; box-shadow: inset 0 0 0 3px #2eff8c, 0 0 12px #2eff8c; cursor: pointer; animation: pulse 0.8s infinite alternate; }
+  .goalSq.target-own { background-color: #5c1a10; box-shadow: inset 0 0 0 3px #ff9b3d, 0 0 12px #ff9b3d; cursor: pointer; }
+  .goalSq.armed { box-shadow: inset 0 0 0 4px #ff5252, 0 0 16px #ff5252; animation: pulse 0.4s infinite alternate; }
+  .goalSq.lastto { outline: 3px solid #fff; outline-offset: 1px; }
+  @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.5); } }
+  .goallabel { text-align: center; font-size: 10px; color: #8fa8c8; margin-top: 4px; }
+  #board { display: grid; grid-template-columns: repeat(9, 1fr); width: 100%; aspect-ratio: 9 / 13; border: 2px solid #20334f; border-radius: 6px; overflow: hidden; touch-action: manipulation; }
+  .boardwrap { position: relative; background: linear-gradient(155deg, #e8c877, #9a742a 30%, #f4dc96 50%, #8a6420 75%, #e8c877); padding: 3px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  #routeSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  .cell { position: relative; border: 1px solid rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; }
+  .cell.stripe0 { background: #2e8b45; } .cell.stripe1 { background: #27853f; }
+  .cell.pa { background-image: linear-gradient(rgba(255,255,255,.10), rgba(255,255,255,.10)); }
+  .cell.gkzone { background-image: repeating-linear-gradient(45deg, rgba(255,217,77,.28) 0 4px, transparent 4px 8px); }
+  .cell.centerline { border-bottom: 2px solid rgba(255,255,255,.75); }
+  .cell.move { box-shadow: inset 0 0 0 3px #ffd94d; cursor: pointer; }
+  .cell.move::after { content: ""; width: 26%; height: 26%; border-radius: 50%; background: rgba(255,217,77,.85); position: absolute; }
+  .cell.gkfree { box-shadow: inset 0 0 0 3px #ffffff; cursor: pointer; }
+  .cell.gkfree::after { content: ""; width: 26%; height: 26%; border-radius: 50%; background: rgba(255,255,255,.9); position: absolute; }
+  .cell.kickt { box-shadow: inset 0 0 0 3px #5ee1ff; cursor: pointer; }
+  .cell.kickt.opp { box-shadow: inset 0 0 0 3px #ff9b3d; }
+  .cell.usedblock { box-shadow: inset 0 0 0 3px #8a8a8a; }
+  .cell.offsideblock { box-shadow: inset 0 0 0 3px #b388ff; }
+  .cell.armed { box-shadow: inset 0 0 0 4px #ff5252 !important; }
+  .cell.lastfrom { box-shadow: inset 0 0 0 2px rgba(255,255,255,.55); }
+  .cell.lastto { box-shadow: inset 0 0 0 3px #ffffff; }
+  .looseball { font-size: clamp(13px, 4.4vw, 20px); filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+  .piece { width: 88%; height: 88%; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; line-height: 1; position: relative; z-index: 2; cursor: pointer; padding: 0; }
+  .piece.bluep { background: radial-gradient(circle at 35% 30%, #7cc0ff, #1450a0 70%); color: #fff; }
+  .piece.redp { background: radial-gradient(circle at 35% 30%, #ffb0a3, #b02a1c 70%); color: #fff; }
+  .piece.gk { background: radial-gradient(circle at 35% 30%, #ffe27a, #d4a017 70%); color: #2a2000; border-color: #fff3b0; }
+  .piece .role { font-size: clamp(8px, 2.6vw, 12px); }
+  .piece.sel { outline: 3px solid #ffd94d; outline-offset: 1px; }
+  .piece.hasball::after { content: "⚽"; position: absolute; right: -4px; bottom: -5px; font-size: clamp(10px, 3.4vw, 15px); filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+  .piece.used::before { content: "✓"; position: absolute; left: -5px; top: -6px; width: 14px; height: 14px; border-radius: 50%; background: #555; color: #fff; font-size: 9px; display: flex; align-items: center; justify-content: center; border: 1px solid #ccc; }
+  .piece.stealable { outline: 3px dashed #ff9b3d; outline-offset: 1px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; color: #b8cbe4; margin-top: 6px; justify-content: center; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 3px; vertical-align: -1px; }
+  .legend i.zone { background: repeating-linear-gradient(45deg, rgba(255,217,77,.7) 0 3px, transparent 3px 6px), #2e8b45; }
+  .dock { position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; width: min(480px, 100%); background: rgba(8, 14, 26, .97); border-top: 1px solid #a87f2e; padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); z-index: 60; }
+  .msg { min-height: 36px; max-height: 56px; overflow-y: auto; background: #0f1e38; border: 1px solid #554619; border-radius: 10px; padding: 7px 10px; font-size: 13px; }
+  .panel { margin-top: 6px; background: #0d1830; border: 1px solid #554619; border-radius: 12px; padding: 8px 9px; }
+  .panel .selinfo { font-size: 12px; margin-bottom: 6px; min-height: 16px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.act { flex: 1 1 30%; padding: 11px 4px; border-radius: 9px; border: 1px solid #a87f2e; background: #16294a; color: #f3e5bd; font-size: 13px; font-weight: 700; cursor: pointer; }
+  button.act.on { background: #ffd94d; color: #3a2c00; border-color: #ffd94d; }
+  button.act.goalbtn { background: #1f9d55; border-color: #2ecc71; }
+  button.act:disabled { opacity: .35; }
+  button.sub { background: #101c30; border-color: #4c5a75; color: #c6d6ec; }
+  button.danger { background: #8a3a14; border-color: #c96a2e; }
+  .log { margin-top: 8px; font-size: 11px; color: #9db4d0; max-height: 110px; overflow-y: auto; background: #0e1a2e; border: 1px solid #2c3d5c; border-radius: 8px; padding: 6px 9px; }
+  .log .logtitle { font-weight: 800; color: #c6d6ec; margin-bottom: 2px; }
+  .log div { padding: 1px 0; }
+  .log div.goal { color: #7dffb0; font-weight: 700; }
+  .row { display: flex; gap: 6px; margin-top: 8px; }
+  details { margin-top: 12px; font-size: 12px; color: #c6d6ec; background: #0d1830; border: 1px solid #554619; border-radius: 10px; padding: 8px 11px; }
+  summary { font-weight: 700; cursor: pointer; }
+  li { margin: 3px 0; }
+  #goalOverlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(4, 10, 20, .55); z-index: 80; pointer-events: none; }
+  #goalOverlay.show { display: flex; }
+  #goalOverlay .big { font-size: 64px; font-weight: 900; letter-spacing: .05em; text-shadow: 0 4px 24px rgba(0,0,0,.8); animation: zoomin .35s ease-out; }
+  #goalOverlay .gosub { font-size: 16px; font-weight: 700; margin-top: 4px; text-shadow: 0 2px 8px rgba(0,0,0,.8); }
+  @keyframes zoomin { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚽ KICKMATE</h1>
+  <div class="sub">サッカー将棋 ｜ プロトタイプ v1.7 ｜ 運要素なし</div>
+  <div class="row" style="margin:0 0 8px">
+    <button class="act" id="modeCpu">🤖 CPU対戦</button>
+    <button class="act sub" id="modeHard">👹 CPU上級</button>
+    <button class="act sub" id="mode2p">👥 2人対戦</button>
+  </div>
+
+  <div class="score">
+    <div class="team blue">青 <span class="num" id="scoreBlue">0</span></div>
+    <div class="turn"><b id="turnLabel">青のターン</b><br><span id="plyLabel">1手目 / 全100手</span></div>
+    <div class="team red"><span class="num" id="scoreRed">0</span> 赤</div>
+  </div>
+  <div class="ballchip">ボール：<b id="ballState">青が保持</b><span id="chainBadge">🔥 あと1手行動できます</span></div>
+
+  <div class="goallabel">▼ 赤のゴール（青が攻める）</div>
+  <div class="goalrow" id="goalTop"></div>
+  <div class="boardwrap"><div id="board"></div><svg id="routeSvg" viewBox="0 0 900 1300" preserveAspectRatio="none"></svg></div>
+  <div class="goalrow bottom" id="goalBottom"></div>
+  <div class="goallabel">▲ 青のゴール（赤が攻める）</div>
+
+  <div class="legend">
+    <span><i style="background:#ffd94d"></i>移動先</span>
+    <span><i style="background:#5ee1ff"></i>蹴り先</span>
+    <span><i style="background:#ff9b3d"></i>相手／警告</span>
+    <span><i style="background:#2eff8c"></i>ゴール可</span>
+    <span><i style="background:#b388ff"></i>オフサイド（パス不可）</span>
+    <span><i style="background:#fff"></i>GK無料移動先</span>
+    <span><i class="zone"></i>GKゾーン</span>
+    <span>✓＝このターン保有済み</span>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <div class="row">
+    <button class="act sub" id="resetBtn">試合をリセット</button>
+  </div>
+
+  <details>
+    <summary>ルール（2026-11-03 改定版）</summary>
+    <ul>
+      <li>1ターンに1つだけ行動する（例外：味方へのパス成功、奪取、フリーボールを拾うことはターンに含まれず、続けて行動できる）。</li>
+      <li>選手の移動：役割と方向で決まる（前＝相手ゴール方向、後＝自陣方向）。ボールを持っていないときは FW 前4・横3・後2／MF 前3・横3・後3／DF 前2・横3・後4／GK 全方向3。保持時は FW 前2・横2・後1／MF 全方向2／DF 前1・横2・後2／GK 全方向2。斜め前は「前」、斜め後は「後」のマス数を適用する。どの方向も途中に選手がいると先へ進めず、選手のいるマスには入れない。</li>
+      <li>同じターン中に、同じ選手はボールを1度しか保有できない（✓マークがついた選手にはそのターン中パスできない）。</li>
+      <li>GKは各ターンに1回だけ、ゴール前のホームエリア（自ゴール側の端2行）の中で1マス無料で再配置できる。</li>
+      <li>ゴール前ゾーン（黄色い斜線の3マス）は、そのゴールを守るGKと相手プレイヤーが入れる（守る側のGK以外の選手は立てない）。ゾーンに残ったフリーボールは相手も拾いにいける。GKは金色の駒。</li>
+      <li>オフサイド：パスを受ける選手が、ボールより前で、かつ相手の後ろから2人目（GK含む）よりゴールに近い位置にいると、その選手にはパスできない（紫の枠で表示）。自陣内と、ボールと同じか後ろの位置はセーフ。</li>
+      <li>ボールを持っている側は、そのターンに「選手を動かす」か「ボールを動かす」かを選ぶ。</li>
+      <li>ボールの移動：直線で最大5マス（FWは斜め後ろへのキックのみ不可、それ以外は全役割8方向）。選手がいないマスにも蹴れる（ルーズボール＝フリーボール）。選手がいるマスまで蹴れば、その選手のボールになる（相手でも同じ）。方向ごとに最初に選手がいるマスより先へは蹴れない。フリーボールは選手がそのマスへ移動すると拾え、拾った選手は続けてもう1手行動できる。</li>
+      <li>ゴール：フィールドの外に突き出した3マスがゴール。ボールをその3マスのどれかに入れればゴール。ただし直接ゴールに入れるキックは3マスまで（通常のキックは5マスまで）。自軍のゴールに入れると相手の得点（オウンゴール）。相手に渡るキックとオウンゴールは、誤タップ防止のため2回タップで確定する。</li>
+      <li>ボールを持っていない側は、保持者の縦横1マス（斜めはダメ）に自軍選手がいれば、その選手でボールを奪える。奪取はターンに含まれず、奪った後にもう1手行動できる。ただし奪った選手は、そのターン中は直接ゴールへ蹴り込めない（パスを挟めば受け手は可）。</li>
+      <li>間違えたら下のバーから「このターンをやり直す」でターン開始時に戻せる（1ターン分のみ）。</li>
+      <li>ゴール後は失点した側のキックオフ（初期配置に戻る）。合計100手で試合終了、得点が多い方の勝ち。</li>
+    </ul>
+  </details>
+</div>
+
+<div id="goalOverlay"><div class="big" id="goalBig">⚽ GOAL!</div><div class="gosub" id="goalSub"></div></div>
+
+<div class="dock" id="dock">
+  <div class="msg" id="msg">青チームの選手をタップして選んでください。</div>
+  <div class="panel">
+    <div class="selinfo" id="selInfo">未選択</div>
+    <div class="btns" id="btns"></div>
+  </div>
+</div>
+
+<script src="logic.js"></script>
+<script>
+'use strict';
+const L = window.SSLogic;
+let S;
+let vsCpu = true;
+let cpuHard = false;
+let cpuTimer = null;
+let cpuSteps = 0;
+let resetArmed = false;
+let resetArmTimer = null;
+
+function newGame() {
+  const players = L.initialPlayers();
+  const ballId = L.kickoffHolder(players, 'blue');
+  const h = L.byId(players, ballId);
+  S = {
+    players, ballId, ball: { c: h.c, r: h.r },
+    turn: 'blue', ply: 0, maxPly: 100,
+    score: { blue: 0, red: 0 },
+    selectedId: null, mode: 'move', over: false, logs: [], freeChain: false,
+    turnHolders: [ballId], noGoalFor: null, gkFree: false, lastAction: null, passRoute: [{ c: h.c, r: h.r }],
+    armKey: null, celebrating: false, turnStartSnap: null,
+  };
+  S.gkFree = gkEligible('blue');
+  refreshSnap();
+  setMsg('試合開始。青のキックオフです。ボールを持っている側は、選手かボールを動かせます。');
+  render();
+}
+function holder() { return S.ballId ? L.byId(S.players, S.ballId) : null; }
+function teamName(t) { return t === 'blue' ? '青' : '赤'; }
+function setMsg(t) { document.getElementById('msg').textContent = t; }
+function pushLog(t) { S.logs.unshift(t); if (S.logs.length > 30) S.logs.pop(); }
+function gkOf(team) { return S.players.find(p => p.team === team && p.role === 'GK'); }
+function inHomeRows(p) { return p.team === 'red' ? p.r <= 1 : p.r >= 11; }
+function gkEligible(team) { const g = gkOf(team); return !!(g && inHomeRows(g)); }
+function gkFreeTargets(gk) {
+  const out = [];
+  for (let dc = -1; dc <= 1; dc++) for (let dr = -1; dr <= 1; dr++) {
+    if (!dc && !dr) continue;
+    const c = gk.c + dc, r = gk.r + dr;
+    if (!L.inBoard(c, r) || L.playerAt(S.players, c, r)) continue;
+    if (!L.canStand(gk, c, r)) continue;
+    if (!(gk.team === 'red' ? r <= 1 : r >= 11)) continue;
+    out.push({ c, r });
+  }
+  return out;
+}
+function snapshotStr() {
+  return JSON.stringify({ players: S.players, ballId: S.ballId, ball: S.ball, turn: S.turn, ply: S.ply, score: S.score, logs: S.logs, lastAction: S.lastAction, passRoute: S.passRoute });
+}
+function refreshSnap() {
+  S.turnStartSnap = (!vsCpu || S.turn === 'blue') ? snapshotStr() : null;
+}
+function canUndo() { return !!S.turnStartSnap && !S.celebrating && (!vsCpu || S.turn === 'blue'); }
+function doUndo() {
+  if (!canUndo()) return;
+  const s = JSON.parse(S.turnStartSnap);
+  S.players = s.players; S.ballId = s.ballId; S.ball = s.ball; S.turn = s.turn; S.ply = s.ply;
+  S.score = s.score; S.logs = s.logs; S.lastAction = s.lastAction; S.passRoute = s.passRoute || [];
+  S.over = false; S.selectedId = null; S.mode = 'move'; S.freeChain = false;
+  S.turnHolders = (S.ballId && holder() && holder().team === S.turn) ? [S.ballId] : [];
+  S.noGoalFor = null; S.armKey = null; S.gkFree = gkEligible(S.turn);
+  if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; }
+  render();
+  setMsg('ターンの開始時に戻しました。');
+}
+function beginTurnCommon() {
+  S.freeChain = false; S.noGoalFor = null; S.armKey = null;
+  S.turnHolders = (S.ballId && holder() && holder().team === S.turn) ? [S.ballId] : [];
+  S.passRoute = S.ballId ? [{ c: S.ball.c, r: S.ball.r }] : [];
+  S.gkFree = gkEligible(S.turn);
+  refreshSnap();
+}
+function endTurn(note) {
+  if (note) pushLog(note);
+  S.selectedId = null; S.mode = 'move'; S.ply++;
+  if (S.ply >= S.maxPly) {
+    S.over = true; S.freeChain = false;
+    const w = S.score.blue === S.score.red ? '引き分け' : (S.score.blue > S.score.red ? '青の勝ち！' : '赤の勝ち！');
+    setMsg('試合終了： ' + S.score.blue + ' - ' + S.score.red + ' で ' + w);
+    pushLog('試合終了 ' + S.score.blue + '-' + S.score.red + ' ' + w);
+    render(); return;
+  }
+  S.turn = S.turn === 'blue' ? 'red' : 'blue';
+  if (S.turn === 'red') cpuSteps = 0;
+  beginTurnCommon();
+  render();
+  maybeCpu();
+}
+function kickoff(conceded) {
+  S.players = L.initialPlayers();
+  S.ballId = L.kickoffHolder(S.players, conceded);
+  const h = holder();
+  S.ball = { c: h.c, r: h.r };
+  S.turn = conceded; S.selectedId = null; S.mode = 'move'; S.lastAction = null;
+  if (conceded === 'red') cpuSteps = 0;
+  beginTurnCommon();
+  render();
+  maybeCpu();
+}
+function onGoal(scoringTeam, kicker) {
+  S.score[scoringTeam]++;
+  const own = kicker.team !== scoringTeam;
+  pushLog('⚽ ゴール！ ' + teamName(scoringTeam) + 'が得点' + (own ? '（オウンゴール）' : '（' + teamName(kicker.team) + ' ' + kicker.role + 'のキック）') + ' ' + S.score.blue + '-' + S.score.red);
+  S.ply++;
+  S.celebrating = true;
+  render();
+  const ov = document.getElementById('goalOverlay');
+  document.getElementById('goalBig').textContent = '⚽ GOAL!';
+  document.getElementById('goalBig').style.color = scoringTeam === 'blue' ? '#6db3ff' : '#ff7d6d';
+  document.getElementById('goalSub').textContent = teamName(scoringTeam) + 'が得点' + (own ? '（オウンゴール）' : '') + '　' + S.score.blue + ' - ' + S.score.red;
+  ov.className = 'show';
+  setTimeout(() => {
+    ov.className = '';
+    S.celebrating = false;
+    if (S.ply >= S.maxPly) {
+      S.over = true;
+      const w = S.score.blue === S.score.red ? '引き分け' : (S.score.blue > S.score.red ? '青の勝ち！' : '赤の勝ち！');
+      setMsg('試合終了： ' + S.score.blue + ' - ' + S.score.red + ' で ' + w);
+      render(); return;
+    }
+    const conceded = scoringTeam === 'blue' ? 'red' : 'blue';
+    kickoff(conceded);
+    setMsg('ゴール！ ' + teamName(scoringTeam) + 'が得点' + (own ? '（オウンゴール）' : '') + '。' + teamName(conceded) + 'のキックオフで再開します。');
+  }, 1500);
+}
+
+/* ---------- アクション ---------- */
+function doMove(p, c, r) {
+  S.lastAction = { from: { c: p.c, r: p.r }, to: { c, r } };
+  const wasHolder = p.id === S.ballId;
+  p.c = c; p.r = r;
+  if (wasHolder) {
+    S.ball = { c, r };
+    endTurn(teamName(p.team) + ' ' + p.role + ' がボールを持って移動');
+  } else if (!S.ballId && S.ball.c === c && S.ball.r === r) {
+    // フリーボール（ルーズボール）を拾ったらターンは続く：その選手がもう1手行動できる
+    S.ballId = p.id;
+    S.turnHolders = [p.id];
+    pushLog(teamName(p.team) + ' ' + p.role + ' がフリーボールを拾った（ターンは続く）');
+    S.freeChain = true; S.selectedId = p.id; S.mode = 'kick';
+    S.passRoute = [{ c, r }];
+    render();
+    setMsg('フリーボールを拾いました！ その選手は続けてもう1手行動できます（蹴り先が表示されています。移動したいときは「選手を動かす」ボタン）。');
+    maybeCpu();
+  } else {
+    endTurn(teamName(p.team) + ' ' + p.role + ' が移動');
+  }
+}
+function doGkFreeMove(gk, c, r) {
+  S.lastAction = { from: { c: gk.c, r: gk.r }, to: { c, r } };
+  const wasHolder = gk.id === S.ballId;
+  gk.c = c; gk.r = r;
+  if (wasHolder) S.ball = { c, r };
+  S.gkFree = false; S.mode = 'move';
+  pushLog(teamName(gk.team) + ' GKが無料で再配置');
+  render();
+  setMsg('GKを再配置しました。続けて通常の行動ができます。');
+  maybeCpu();
+}
+function goalAllowed() { return S.ballId !== S.noGoalFor; }
+function doKick(t) {
+  const from = holder();
+  const ballFrom = { c: S.ball.c, r: S.ball.r };
+  if (t.goal) { onGoal(t.goal === 'top' ? 'blue' : 'red', from); return; }
+  if (t.holderId) {
+    const recv = L.byId(S.players, t.holderId);
+    S.lastAction = { from: ballFrom, to: { c: recv.c, r: recv.r } };
+    S.ballId = recv.id; S.ball = { c: recv.c, r: recv.r };
+    if (recv.team === from.team) {
+      if (!S.turnHolders.includes(recv.id)) S.turnHolders.push(recv.id);
+      pushLog(teamName(from.team) + ' がパス成功 → ' + recv.role + ' が受けた（ターンは続く）');
+      if (!S.passRoute.length) S.passRoute.push(ballFrom);
+      S.passRoute.push({ c: recv.c, r: recv.r });
+      S.freeChain = true; S.selectedId = recv.id; S.mode = 'kick';
+      render();
+      setMsg('パス成功！ 受けた ' + recv.role + ' がそのまま行動できます。✓のついた選手にはこのターンもうパスできません。');
+      maybeCpu();
+    } else {
+      endTurn(teamName(from.team) + ' がボールを蹴り、' + teamName(recv.team) + ' ' + recv.role + ' のボールに');
+      setMsg('相手に渡ってしまいました。' + teamName(S.turn) + 'のターンです。');
+    }
+  } else {
+    S.lastAction = { from: ballFrom, to: { c: t.c, r: t.r } };
+    S.ballId = null; S.ball = { c: t.c, r: t.r };
+    endTurn(teamName(from.team) + ' が空いたマスへボールを蹴った（ルーズボール）');
+    setMsg('ボールは空いたマスに残りました。選手が移動すれば拾えます。' + teamName(S.turn) + 'のターンです。');
+  }
+}
+function tryKick(t) {
+  const key = t.goal ? 'goal' + t.goal + t.c : t.c + ',' + t.r;
+  let dangerMsg = null;
+  if (t.goal) {
+    const scoring = t.goal === 'top' ? 'blue' : 'red';
+    if (scoring !== S.turn) dangerMsg = '⚠ これはオウンゴールになります（相手の得点）。もう一度タップで確定します。';
+  } else if (t.holderId) {
+    const recv = L.byId(S.players, t.holderId);
+    if (recv && recv.team !== S.turn) dangerMsg = '⚠ そのキックは相手に渡ります。もう一度タップで確定します。';
+  }
+  if (dangerMsg && S.armKey !== key) {
+    S.armKey = key; render(); setMsg(dangerMsg); return;
+  }
+  S.armKey = null;
+  doKick(t);
+}
+function doSteal(p) {
+  const h = holder();
+  S.lastAction = { from: { c: h.c, r: h.r }, to: { c: p.c, r: p.r } };
+  S.ballId = p.id; S.ball = { c: p.c, r: p.r };
+  S.turnHolders = [p.id];
+  S.noGoalFor = p.id;
+  pushLog(teamName(p.team) + ' ' + p.role + ' が ' + teamName(h.team) + ' ' + h.role + ' からボールを奪った（奪取は手数に含まない）');
+  S.freeChain = true;
+  S.passRoute = [{ c: p.c, r: p.r }];
+  S.selectedId = p.id; S.mode = 'kick';
+  render();
+  setMsg('ボール奪取！ 続けて1手行動できます。ただしこの選手はこのターン、直接ゴールへは蹴り込めません（パスを挟めば受け手は可）。');
+  maybeCpu();
+}
+
+/* ---------- CPU（赤） ---------- */
+function maybeCpu() {
+  if (!vsCpu || !S || S.over || S.celebrating || S.turn !== 'red' || cpuTimer) return;
+  cpuTimer = setTimeout(() => { cpuTimer = null; cpuStep(); }, 650);
+}
+function cpuGkFree() {
+  const gk = gkOf('red');
+  if (!gk || !inHomeRows(gk)) { S.gkFree = false; return false; }
+  const h = holder();
+  const desiredC = (h && h.team === 'blue' && h.r <= 6) ? Math.max(3, Math.min(5, h.c)) : 4;
+  if (gk.c === desiredC && gk.r === 0) { S.gkFree = false; return false; }
+  const targets = gkFreeTargets(gk);
+  let best = null;
+  for (const t of targets) {
+    const d = Math.abs(t.c - desiredC) + Math.abs(t.r - 0);
+    if (!best || d < best.d) best = { t, d };
+  }
+  if (!best) { S.gkFree = false; return false; }
+  doGkFreeMove(gk, best.t.c, best.t.r);
+  return true;
+}
+function cpuStep() {
+  if (!vsCpu || S.over || S.celebrating || S.turn !== 'red') return;
+  cpuSteps++;
+  if (cpuSteps > 14) { endTurn('赤（CPU）は行動を終えた'); return; }
+  if (cpuHard) { cpuStepHard(); return; }
+  if (S.gkFree && cpuGkFree()) return;
+  const h = holder();
+  if (h && h.team === 'red') {
+    if (goalAllowed()) {
+      const gt = L.attackingGoalTarget(S.players, S.ball, 'red', h);
+      if (gt) { S.selectedId = h.id; doKick(gt); return; }
+    }
+    const bp = L.bestPass(S.players, h.id, S.turnHolders);
+    if (bp) { S.selectedId = h.id; doKick(bp.target); return; }
+    const dt = L.dribbleTarget(S.players, h.id);
+    if (dt) { doMove(h, dt.c, dt.r); return; }
+    const empties = L.ballKickTargets(S.players, S.ball, S.turnHolders, h).filter(t => !t.holderId && !t.goal);
+    if (empties.length) {
+      let best = null;
+      for (const t of empties) {
+        const nearMate = Math.min.apply(null, S.players.filter(p => p.team === 'red').map(p => L.manhattan(p.c, p.r, t.c, t.r)));
+        const danger = L.oppOrthAdjacent(S.players, 'red', t.c, t.r).length;
+        const score = (t.r - S.ball.r) * 2 + (nearMate <= 3 ? 2 : 0) - danger * 5;
+        if (!best || score > best.score) best = { t, score };
+      }
+      doKick(best.t); return;
+    }
+    endTurn('赤（CPU）は行動できずパス'); return;
+  }
+  if (h && h.team === 'blue') {
+    const cand = L.stealCandidates(S.players, h.id, 'red');
+    if (cand.length) { doSteal(cand[0]); return; }
+    const mv = L.bestMoveToward(S.players, 'red', { c: h.c, r: h.r }, S.ballId, { gkHome: true });
+    if (mv) { doMove(L.byId(S.players, mv.playerId), mv.c, mv.r); return; }
+    endTurn('赤（CPU）は様子を見た'); return;
+  }
+  const mv = L.bestMoveToward(S.players, 'red', S.ball, S.ballId, { gkHome: true });
+  if (mv) { doMove(L.byId(S.players, mv.playerId), mv.c, mv.r); return; }
+  endTurn('赤（CPU）は行動できずパス');
+}
+function cpuStepHard() {
+  const act = L.chooseAdvanced(S.players, S.ball, S.ballId, { team: 'red', usedIds: S.turnHolders, canGoal: goalAllowed(), gkFree: S.gkFree });
+  if (!act) { endTurn('赤（CPU上級）は行動を終えた'); return; }
+  if (act.type === 'gkfree') { doGkFreeMove(gkOf('red'), act.c, act.r); return; }
+  if (act.type === 'steal') { doSteal(L.byId(S.players, act.playerId)); return; }
+  if (act.type === 'kick') { S.selectedId = S.ballId; doKick(act.target); return; }
+  if (act.type === 'move') { doMove(L.byId(S.players, act.playerId), act.c, act.r); return; }
+  endTurn('赤（CPU上級）は行動を終えた');
+}
+
+/* ---------- 描画 ---------- */
+function kickTargets() {
+  if (S.mode !== 'kick' || !S.ballId) return [];
+  const all = L.ballKickTargets(S.players, S.ball, S.turnHolders, holder());
+  if (!goalAllowed()) return all.filter(t => !t.goal);
+  return all;
+}
+function moveRangeText(p) {
+  const t = L.MOVE_TABLE[p.role][p.id === S.ballId ? 'hold' : 'free'];
+  return '前' + t.f + '・横' + t.s + '・後' + t.b + 'マス';
+}
+function render() {
+  document.getElementById('modeCpu').className = 'act' + (vsCpu && !cpuHard ? ' on' : ' sub');
+  document.getElementById('modeHard').className = 'act' + (vsCpu && cpuHard ? ' on' : ' sub');
+  document.getElementById('mode2p').className = 'act' + (!vsCpu ? ' on' : ' sub');
+  document.getElementById('scoreBlue').textContent = S.score.blue;
+  document.getElementById('scoreRed').textContent = S.score.red;
+  document.getElementById('turnLabel').textContent = S.over ? '試合終了' : (vsCpu && S.turn === 'red' ? '赤のターン（CPU思考中…）' : teamName(S.turn) + 'のターン');
+  document.getElementById('turnLabel').className = S.turn;
+  document.getElementById('plyLabel').textContent = Math.min(S.ply + 1, S.maxPly) + '手目 / 全' + S.maxPly + '手';
+  const h = holder();
+  document.getElementById('ballState').textContent = h ? teamName(h.team) + 'が保持' : 'ルーズ（' + (S.ball.c + 1) + '列・' + (S.ball.r + 1) + '行）';
+  document.getElementById('chainBadge').style.display = S.freeChain && !S.over ? 'inline-block' : 'none';
+
+  const sel = S.selectedId ? L.byId(S.players, S.selectedId) : null;
+  let moves = [];
+  if (sel && S.mode === 'move' && !S.celebrating) moves = L.moveTargets(S.players, sel, sel.id === S.ballId);
+  if (sel && S.mode === 'gkfree' && !S.celebrating) moves = gkFreeTargets(sel);
+  const kicks = S.celebrating ? [] : kickTargets();
+  const stealers = h && h.team !== S.turn ? L.stealCandidates(S.players, h.id, S.turn) : [];
+  renderGoalRow('goalTop', 'top', 'redgoal', kicks);
+  renderGoalRow('goalBottom', 'bottom', 'bluegoal', kicks);
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  for (let r = 0; r < L.ROWS; r++) {
+    for (let c = 0; c < L.COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell stripe' + (r % 2);
+      if ((r < 3 || r > 9) && c >= 2 && c <= 6) cell.className += ' pa';
+      if (L.goalFrontTeam(c, r)) cell.className += ' gkzone';
+      if (r === 5) cell.className += ' centerline';
+      if (S.lastAction) {
+        if (S.lastAction.from.c === c && S.lastAction.from.r === r) cell.className += ' lastfrom';
+        if (S.lastAction.to.c === c && S.lastAction.to.r === r) cell.className += ' lastto';
+      }
+      const mv = moves.find(m => m.c === c && m.r === r);
+      if (mv) {
+        cell.className += S.mode === 'gkfree' ? ' gkfree' : ' move';
+        cell.onclick = () => { if (S.mode === 'gkfree') doGkFreeMove(sel, c, r); else doMove(sel, c, r); };
+      }
+      const kt = kicks.find(k => !k.goal && k.c === c && k.r === r);
+      if (kt) {
+        if (kt.usedBlock) {
+          cell.className += ' usedblock';
+          cell.onclick = () => setMsg('その選手はこのターンすでにボールを持ちました（✓）。別の蹴り先を選んでください。');
+        } else if (kt.offside && kt.holderId && L.byId(S.players, kt.holderId).team === S.turn) {
+          cell.className += ' offsideblock';
+          cell.onclick = () => setMsg('その選手はオフサイドの位置にいます（相手の後ろから2人目より前）。パスできません。');
+        } else {
+          const occ = kt.holderId ? L.byId(S.players, kt.holderId) : null;
+          cell.className += ' kickt' + (occ && occ.team !== S.turn ? ' opp' : '');
+          if (S.armKey === c + ',' + r) cell.className += ' armed';
+          cell.onclick = () => tryKick(kt);
+        }
+      }
+      const p = L.playerAt(S.players, c, r);
+      if (p) {
+        const b = document.createElement('button');
+        b.className = 'piece ' + (p.team === 'blue' ? 'bluep' : 'redp') + (p.role === 'GK' ? ' gk' : '') + (p.id === S.ballId ? ' hasball' : '') + (sel && sel.id === p.id ? ' sel' : '') + (stealers.some(s => s.id === p.id) ? ' stealable' : '') + (S.turnHolders.includes(p.id) && p.id !== S.ballId ? ' used' : '');
+        b.innerHTML = '<span class="role">' + p.role + '</span>';
+        b.onclick = (e) => { e.stopPropagation(); onPieceTap(p); };
+        cell.appendChild(b);
+      } else if (!S.ballId && S.ball.c === c && S.ball.r === r) {
+        const s = document.createElement('span');
+        s.className = 'looseball'; s.textContent = '⚽';
+        cell.appendChild(s);
+      }
+      board.appendChild(cell);
+    }
+  }
+  const svg = document.getElementById('routeSvg');
+  if (S.passRoute && S.passRoute.length >= 2) {
+    const pts = S.passRoute.map(q => ((q.c + 0.5) * 100) + ',' + ((q.r + 0.5) * 100)).join(' ');
+    svg.innerHTML = '<polyline points="' + pts + '" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>' +
+      S.passRoute.map(q => '<circle cx="' + ((q.c + 0.5) * 100) + '" cy="' + ((q.r + 0.5) * 100) + '" r="17" fill="rgba(255,255,255,.75)"/>').join('');
+  } else svg.innerHTML = '';
+  renderPanel(sel, stealers);
+  document.getElementById('log').innerHTML = '<div class="logtitle">履歴</div>' + S.logs.map(t => '<div' + (t.includes('ゴール') ? ' class="goal"' : '') + '>' + t + '</div>').join('');
+  const dock = document.getElementById('dock');
+  document.body.style.paddingBottom = (dock.offsetHeight + 14) + 'px';
+}
+function renderGoalRow(id, side, cls, kicks) {
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  for (let c = 0; c < L.COLS; c++) {
+    const d = document.createElement('div');
+    if (L.GOAL_COLS.includes(c)) {
+      d.className = 'goalSq ' + cls + (c === L.GOAL_COLS[0] ? ' gfirst' : '') + (c === L.GOAL_COLS[L.GOAL_COLS.length - 1] ? ' glast' : '');
+      if (S.lastAction && S.lastAction.to.c === c && S.lastAction.to.r === (side === 'top' ? -1 : L.ROWS)) d.className += ' lastto';
+      const kt = kicks.find(k => k.goal === side && k.c === c);
+      if (kt) {
+        const scoring = side === 'top' ? 'blue' : 'red';
+        if (scoring === S.turn) { d.className += ' target'; }
+        else { d.className += ' target-own'; d.textContent = '⚠'; }
+        if (S.armKey === 'goal' + side + c) d.className += ' armed';
+        d.onclick = () => tryKick(kt);
+      }
+    } else {
+      d.className = 'sp';
+    }
+    el.appendChild(d);
+  }
+}
+function onPieceTap(p) {
+  if (S.over || S.celebrating) return;
+  if (vsCpu && S.turn === 'red') { setMsg('CPU（赤）のターンです。少し待ってね。'); return; }
+  if (S.mode === 'kick') {
+    const kt = kickTargets().find(k => !k.goal && k.c === p.c && k.r === p.r);
+    if (kt) {
+      if (kt.usedBlock) { setMsg('その選手はこのターンすでにボールを持ちました（✓）。'); return; }
+      if (kt.offside && p.team === S.turn) { setMsg('その選手はオフサイドの位置にいます。パスできません。'); return; }
+      tryKick(kt); return;
+    }
+  }
+  if (p.team !== S.turn) { setMsg(teamName(S.turn) + 'のターンです。自軍の選手を選んでください。'); return; }
+  S.selectedId = p.id; S.mode = p.id === S.ballId ? 'kick' : 'move'; S.armKey = null;
+  if (p.id === S.ballId) {
+    const gt = goalAllowed() ? L.attackingGoalTarget(S.players, S.ball, p.team, p) : null;
+    setMsg(gt ? '保持者です。光るゴールマスをタップでゴール！' : '保持者です。蹴り先をタップでパスできます。ドリブルしたいときは「選手を動かす」ボタン。');
+  }
+  render();
+}
+function renderPanel(sel, stealers) {
+  const info = document.getElementById('selInfo');
+  const btns = document.getElementById('btns');
+  btns.innerHTML = '';
+  if (S.celebrating) { info.textContent = '⚽ ゴール！'; return; }
+  if (vsCpu && S.turn === 'red' && !S.over) { info.textContent = 'CPUが考えています…'; return; }
+  const mkBtn = (label, fn, cls) => {
+    const b = document.createElement('button');
+    b.className = 'act' + (cls ? ' ' + cls : ''); b.textContent = label; b.onclick = fn; btns.appendChild(b); return b;
+  };
+  const addCommon = () => {
+    if (S.freeChain) mkBtn('⏭ ターン終了', () => { endTurn(teamName(S.turn) + ' はフリーアクションのあと行動せずターン終了'); setMsg(teamName(S.turn) + 'のターンです。'); }, 'on');
+    if (S.gkFree && !S.over) mkBtn('GK無料移動を使わない', () => { S.gkFree = false; if (S.mode === 'gkfree') S.mode = 'move'; render(); }, 'sub');
+    if (canUndo()) mkBtn('↩ このターンをやり直す', doUndo, 'sub');
+  };
+  if (!sel || S.over) {
+    info.textContent = S.over ? '試合終了' : (vsCpu && S.turn === 'red' ? 'CPUが考えています…' : '自軍の選手をタップして選択');
+    if (!S.over) addCommon();
+    return;
+  }
+  const h = holder();
+  let txt = teamName(sel.team) + ' ' + sel.role + '（' + (sel.c + 1) + '列・' + (sel.r + 1) + '行）';
+  txt += ' ｜ 移動：' + moveRangeText(sel);
+  if (sel.id === S.ballId) txt += ' ｜ ボール保持中 ｜ ゴールまで ' + L.distToGoal(sel) + 'マス';
+  if (sel.id === S.noGoalFor) txt += ' ｜ 奪取直後のため得点キック不可';
+  if (!h) txt += ' ｜ ボールはルーズボール';
+  if (L.goalFrontTeam(sel.c, sel.r)) txt += ' ｜ GKゾーン内';
+  info.textContent = txt;
+
+  if (sel.id === S.ballId) {
+    const gt = goalAllowed() ? L.attackingGoalTarget(S.players, S.ball, sel.team, sel) : null;
+    if (gt) mkBtn('🥅 ゴールに蹴り込む！', () => doKick(gt), 'goalbtn');
+    mkBtn(S.mode === 'kick' ? '選手を動かす' : 'ボールを蹴る', () => { S.mode = S.mode === 'kick' ? 'move' : 'kick'; S.armKey = null; render(); if (S.mode === 'kick') setMsg('蹴り先をタップ（直線5マスまで）。ゴールマスが緑に光っていれば入ります。相手へのキックとオウンゴールは2回タップで確定します。'); else setMsg('黄色いマスをタップでドリブルできます。'); }, S.mode === 'kick' ? 'on' : '');
+  }
+  if (sel.role === 'GK' && sel.team === S.turn && S.gkFree && gkEligible(sel.team)) {
+    mkBtn(S.mode === 'gkfree' ? '無料再配置：白いマスへ' : 'GK無料再配置（1マス）', () => { S.mode = S.mode === 'gkfree' ? 'move' : 'gkfree'; render(); if (S.mode === 'gkfree') setMsg('白く光るマスへGKを無料で1マス動かせます（ゴール前のエリア内のみ）。使わなくても構いません。'); }, S.mode === 'gkfree' ? 'on' : '');
+  }
+  if (h && h.team !== sel.team && stealers.some(s => s.id === sel.id)) {
+    mkBtn('⚔ ボールを奪う（手数に含まない）', () => doSteal(sel), 'danger');
+  }
+  addCommon();
+  mkBtn('選択解除', () => { S.selectedId = null; S.mode = 'move'; S.armKey = null; render(); }, 'sub');
+}
+function armOrRun(btn, label, fn) {
+  if (S.ply > 0 && resetArmed !== btn.id) {
+    resetArmed = btn.id;
+    btn.textContent = '本当に実行する？（もう一度タップ）';
+    setMsg('試合中です。もう一度タップすると試合が最初からになります。');
+    resetArmTimer = setTimeout(() => { resetArmed = false; btn.textContent = label; }, 3000);
+    return;
+  }
+  if (resetArmTimer) clearTimeout(resetArmTimer);
+  resetArmed = false;
+  btn.textContent = label;
+  fn();
+}
+document.getElementById('resetBtn').onclick = (e) => armOrRun(e.currentTarget, '試合をリセット', () => newGame());
+document.getElementById('modeCpu').onclick = (e) => { if (!vsCpu || cpuHard) armOrRun(e.currentTarget, '🤖 CPU対戦', () => { vsCpu = true; cpuHard = false; newGame(); setMsg('CPU対戦モード。あなたは青です。'); }); };
+document.getElementById('modeHard').onclick = (e) => { if (!vsCpu || !cpuHard) armOrRun(e.currentTarget, '👹 CPU上級', () => { vsCpu = true; cpuHard = true; newGame(); setMsg('CPU上級モード。読みの深い強いCPUです。あなたは青です。'); }); };
+document.getElementById('mode2p').onclick = (e) => { if (vsCpu) armOrRun(e.currentTarget, '👥 2人対戦', () => { vsCpu = false; cpuHard = false; newGame(); setMsg('2人対戦モード。同じ画面で交互に操作します。'); }); };
+newGame();
+</script>
+</body>
+</html>
