@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>KICKMATE（サッカー将棋）v1.7</title>
+<title>KICKMATE（サッカー将棋）v1.9</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin: 0; font-family: -apple-system, "Hiragino Sans", sans-serif; background: #060b14; color: #eef3fa; }
@@ -89,6 +89,11 @@
   .log div.goal { color: #7dffb0; font-weight: 700; }
   .row { display: flex; gap: 6px; margin-top: 8px; }
   details { margin-top: 12px; font-size: 12px; color: #c6d6ec; background: #0d1830; border: 1px solid #554619; border-radius: 10px; padding: 8px 11px; }
+  .diagram { margin: 6px 0 2px; }
+  .diagram svg { width: 100%; height: auto; display: block; border-radius: 8px; }
+  .dgrow { display: flex; gap: 8px; }
+  .dgrow > div { flex: 1; }
+  .dgcap { font-size: 11px; color: #9db4d0; margin: 2px 0 9px; line-height: 1.5; }
   summary { font-weight: 700; cursor: pointer; }
   li { margin: 3px 0; }
   #goalOverlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; background: rgba(4, 10, 20, .55); z-index: 80; pointer-events: none; }
@@ -101,7 +106,7 @@
 <body>
 <div class="wrap">
   <h1>⚽ KICKMATE</h1>
-  <div class="sub">サッカー将棋 ｜ プロトタイプ v1.7 ｜ 運要素なし</div>
+  <div class="sub">サッカー将棋 ｜ プロトタイプ v1.9 ｜ 運要素なし</div>
   <div class="row" style="margin:0 0 8px">
     <button class="act" id="modeCpu">🤖 CPU対戦</button>
     <button class="act sub" id="modeHard">👹 CPU上級</button>
@@ -142,15 +147,30 @@
     <summary>ルール（2026-11-03 改定版）</summary>
     <ul>
       <li>1ターンに1つだけ行動する（例外：味方へのパス成功、奪取、フリーボールを拾うことはターンに含まれず、続けて行動できる）。</li>
+      <div class="diagram" id="dg-pass"></div>
+      <div class="dgcap">▲ パスが通ると、受けた選手がそのまま続けて行動できる（フリーアクション）。奪取・拾得も同じ。</div>
       <li>選手の移動：役割と方向で決まる（前＝相手ゴール方向、後＝自陣方向）。ボールを持っていないときは FW 前4・横3・後2／MF 前3・横3・後3／DF 前2・横3・後4／GK 全方向3。保持時は FW 前2・横2・後1／MF 全方向2／DF 前1・横2・後2／GK 全方向2。斜め前は「前」、斜め後は「後」のマス数を適用する。どの方向も途中に選手がいると先へ進めず、選手のいるマスには入れない。</li>
+      <div class="dgrow">
+        <div><div class="diagram" id="dg-move1"></div><div class="dgcap">▲ ボールなしMF：全方向3マス</div></div>
+        <div><div class="diagram" id="dg-move2"></div><div class="dgcap">▲ ボールありMF：全方向2マス</div></div>
+      </div>
+      <div class="dgcap">黄色い●のマスに移動できる。FWは前が長く（ボールなしで前4）、DFは後ろが長い（後4）など、役割で形が変わる。</div>
       <li>同じターン中に、同じ選手はボールを1度しか保有できない（✓マークがついた選手にはそのターン中パスできない）。</li>
       <li>GKは各ターンに1回だけ、ゴール前のホームエリア（自ゴール側の端2行）の中で1マス無料で再配置できる。</li>
       <li>ゴール前ゾーン（黄色い斜線の3マス）は、そのゴールを守るGKと相手プレイヤーが入れる（守る側のGK以外の選手は立てない）。ゾーンに残ったフリーボールは相手も拾いにいける。GKは金色の駒。</li>
       <li>オフサイド：パスを受ける選手が、ボールより前で、かつ相手の後ろから2人目（GK含む）よりゴールに近い位置にいると、その選手にはパスできない（紫の枠で表示）。自陣内と、ボールと同じか後ろの位置はセーフ。</li>
+      <div class="diagram" id="dg-offside"></div>
+      <div class="dgcap">▲ 青が上に攻める場面。紫のライン（相手の後ろから2人目）より前にいるFWはオフサイド。ライン上やボールの後ろの選手はセーフ（○）。</div>
       <li>ボールを持っている側は、そのターンに「選手を動かす」か「ボールを動かす」かを選ぶ。</li>
       <li>ボールの移動：直線で最大5マス（FWは斜め後ろへのキックのみ不可、それ以外は全役割8方向）。選手がいないマスにも蹴れる（ルーズボール＝フリーボール）。選手がいるマスまで蹴れば、その選手のボールになる（相手でも同じ）。方向ごとに最初に選手がいるマスより先へは蹴れない。フリーボールは選手がそのマスへ移動すると拾え、拾った選手は続けてもう1手行動できる。</li>
+      <div class="diagram" id="dg-kick"></div>
+      <div class="dgcap">▲ キックは直線5マスまで（水色）。最初に選手がいるマスで止まり、その選手のボールになる。誰もいないマスに蹴るとルーズボール。</div>
       <li>ゴール：フィールドの外に突き出した3マスがゴール。ボールをその3マスのどれかに入れればゴール。ただし直接ゴールに入れるキックは3マスまで（通常のキックは5マスまで）。自軍のゴールに入れると相手の得点（オウンゴール）。相手に渡るキックとオウンゴールは、誤タップ防止のため2回タップで確定する。</li>
+      <div class="diagram" id="dg-goal"></div>
+      <div class="dgcap">▲ ゴールは外に突き出した3マス。直接入れられるのは3マス目まで（図はゴールまで3マスのシュート）。黄色い斜線がGKゾーン（守るGKと相手だけが入れる）。</div>
       <li>ボールを持っていない側は、保持者の縦横1マス（斜めはダメ）に自軍選手がいれば、その選手でボールを奪える。奪取はターンに含まれず、奪った後にもう1手行動できる。ただし奪った選手は、そのターン中は直接ゴールへ蹴り込めない（パスを挟めば受け手は可）。</li>
+      <div class="diagram" id="dg-steal"></div>
+      <div class="dgcap">▲ 奪取できるのは保持者の上下左右（縦横1マス）にいる選手だけ。斜め（✕）からは奪えない。</div>
       <li>間違えたら下のバーから「このターンをやり直す」でターン開始時に戻せる（1ターン分のみ）。</li>
       <li>ゴール後は失点した側のキックオフ（初期配置に戻る）。合計100手で試合終了、得点が多い方の勝ち。</li>
     </ul>
@@ -651,6 +671,84 @@ document.getElementById('resetBtn').onclick = (e) => armOrRun(e.currentTarget, '
 document.getElementById('modeCpu').onclick = (e) => { if (!vsCpu || cpuHard) armOrRun(e.currentTarget, '🤖 CPU対戦', () => { vsCpu = true; cpuHard = false; newGame(); setMsg('CPU対戦モード。あなたは青です。'); }); };
 document.getElementById('modeHard').onclick = (e) => { if (!vsCpu || !cpuHard) armOrRun(e.currentTarget, '👹 CPU上級', () => { vsCpu = true; cpuHard = true; newGame(); setMsg('CPU上級モード。読みの深い強いCPUです。あなたは青です。'); }); };
 document.getElementById('mode2p').onclick = (e) => { if (vsCpu) armOrRun(e.currentTarget, '👥 2人対戦', () => { vsCpu = false; cpuHard = false; newGame(); setMsg('2人対戦モード。同じ画面で交互に操作します。'); }); };
+/* ---------- ルール図解（SVG） ---------- */
+function diagram(id, cfg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const S = cfg.cell || 30, cols = cfg.cols, rows = cfg.rows;
+  const topPad = cfg.goalTop ? S : 0;
+  const W = cols * S, H = rows * S + topPad;
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  let inner = '<defs><pattern id="hz-' + id + '" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="rgba(255,217,77,.18)"/><line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,217,77,.85)" stroke-width="2"/></pattern></defs>';
+  if (cfg.goalTop) {
+    for (const gc of [3, 4, 5]) {
+      if (gc >= cols) continue;
+      inner += '<rect x="' + (gc * S + 1) + '" y="1" width="' + (S - 2) + '" height="' + (S - 2) + '" fill="#dff5e6" stroke="#fff" stroke-width="1.5"/>';
+      inner += '<path d="M' + (gc * S + 5) + ' 3 V' + (S - 3) + ' M' + (gc * S + S / 2) + ' 3 V' + (S - 3) + ' M' + (gc * S + S - 5) + ' 3 V' + (S - 3) + ' M' + (gc * S + 3) + ' ' + (S / 2) + ' H' + (gc * S + S - 3) + '" stroke="#9db8cc" stroke-width="1"/>';
+    }
+  }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    inner += '<rect x="' + (c * S) + '" y="' + (topPad + r * S) + '" width="' + S + '" height="' + S + '" fill="' + ((c + r) % 2 ? '#35b558' : '#2e9e4f') + '" stroke="rgba(255,255,255,.28)" stroke-width="1"/>';
+  }
+  const HL = { move: 'rgba(255,217,77,.16)', kick: 'rgba(96,200,255,.50)', danger: 'rgba(255,140,60,.55)', shot: 'rgba(80,220,120,.45)' };
+  for (const key in (cfg.hl || {})) {
+    const [c, r] = key.split(',').map(Number);
+    const kind = cfg.hl[key];
+    if (kind === 'zone') inner += '<rect x="' + (c * S + 1) + '" y="' + (topPad + r * S + 1) + '" width="' + (S - 2) + '" height="' + (S - 2) + '" fill="url(#hz-' + id + ')"/>';
+    else inner += '<rect x="' + (c * S + 1) + '" y="' + (topPad + r * S + 1) + '" width="' + (S - 2) + '" height="' + (S - 2) + '" fill="' + HL[kind] + '"/>';
+    if (kind === 'move') inner += '<circle cx="' + (c * S + S / 2) + '" cy="' + (topPad + r * S + S / 2) + '" r="' + (S * 0.17) + '" fill="#ffd94d" stroke="rgba(60,40,0,.55)" stroke-width="1.2"/>';
+  }
+  if (cfg.lineRow != null) {
+    const y = topPad + cfg.lineRow * S;
+    inner += '<rect x="0" y="' + y + '" width="' + W + '" height="' + S + '" fill="rgba(160,80,255,.13)"/>';
+    inner += '<line x1="0" y1="' + y + '" x2="' + W + '" y2="' + y + '" stroke="#c07bff" stroke-width="2.5" stroke-dasharray="7 4"/>';
+  }
+  for (const key of (cfg.offside || [])) {
+    const [c, r] = key.split(',').map(Number);
+    inner += '<rect x="' + (c * S + 2) + '" y="' + (topPad + r * S + 2) + '" width="' + (S - 4) + '" height="' + (S - 4) + '" fill="rgba(160,80,255,.16)" stroke="#c07bff" stroke-width="3" rx="4"/>';
+  }
+  const ctr = (c, r) => [c * S + S / 2, topPad + r * S + S / 2];
+  for (const a of (cfg.arrows || [])) {
+    const [x1, y1] = ctr(a.c1, a.r1), [x2, y2] = ctr(a.c2, a.r2);
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    const sx = x1 + ux * (S * 0.42), sy = y1 + uy * (S * 0.42), ex = x2 - ux * (S * 0.48), ey = y2 - uy * (S * 0.48);
+    const ah = S * 0.30, aw = S * 0.16;
+    const px = ex - ux * ah, py = ey - uy * ah;
+    inner += '<line x1="' + sx + '" y1="' + sy + '" x2="' + px + '" y2="' + py + '" stroke="' + a.color + '" stroke-width="3.5"/>';
+    inner += '<polygon points="' + ex + ',' + ey + ' ' + (px - uy * aw) + ',' + (py + ux * aw) + ' ' + (px + uy * aw) + ',' + (py - ux * aw) + '" fill="' + a.color + '"/>';
+  }
+  for (const b of (cfg.balls || [])) {
+    const [x, y] = ctr(b.c, b.r);
+    inner += '<text x="' + x + '" y="' + (y + S * 0.18) + '" font-size="' + (S * 0.52) + '" text-anchor="middle">⚽</text>';
+  }
+  for (const p of (cfg.pieces || [])) {
+    const [x, y] = ctr(p.c, p.r);
+    const fill = p.role === 'GK' ? '#f5b301' : (p.team === 'blue' ? '#2f7fe0' : '#e0483e');
+    if (p.ring) inner += '<circle cx="' + x + '" cy="' + y + '" r="' + (S * 0.47) + '" fill="none" stroke="#ffd94d" stroke-width="3"/>';
+    inner += '<circle cx="' + x + '" cy="' + y + '" r="' + (S * 0.40) + '" fill="' + fill + '" stroke="rgba(255,255,255,.85)" stroke-width="1.5"/>';
+    inner += '<text x="' + x + '" y="' + (y + S * 0.13) + '" font-size="' + (S * 0.30) + '" font-weight="700" fill="' + (p.role === 'GK' ? '#3a2a00' : '#fff') + '" text-anchor="middle">' + p.role + '</text>';
+    if (p.ball) inner += '<text x="' + (x + S * 0.34) + '" y="' + (y - S * 0.22) + '" font-size="' + (S * 0.36) + '" text-anchor="middle">⚽</text>';
+  }
+  for (const m of (cfg.marks || [])) {
+    const [x, y] = ctr(m.c, m.r);
+    inner += '<text x="' + (x + S * 0.30) + '" y="' + (y - S * 0.18) + '" font-size="' + (S * 0.44) + '" font-weight="700" fill="' + m.color + '" text-anchor="middle">' + m.text + '</text>';
+  }
+  svg.innerHTML = inner;
+  el.appendChild(svg);
+}
+function buildDiagrams() {
+  const rng = (cc, rr, dist, ctrC, ctrR) => { const o = {}; for (let r = 0; r < rr; r++) for (let c = 0; c < cc; c++) { const d = Math.max(Math.abs(c - ctrC), Math.abs(r - ctrR)); if (d >= 1 && d <= dist) o[c + ',' + r] = 'move'; } return o; };
+  diagram('dg-move1', { cols: 9, rows: 9, cell: 24, hl: rng(9, 9, 3, 4, 4), pieces: [{ c: 4, r: 4, team: 'blue', role: 'MF' }] });
+  diagram('dg-move2', { cols: 9, rows: 9, cell: 24, hl: rng(9, 9, 2, 4, 4), pieces: [{ c: 4, r: 4, team: 'blue', role: 'MF', ball: true }] });
+  diagram('dg-pass', { cols: 8, rows: 5, pieces: [{ c: 0, r: 4, team: 'blue', role: 'MF' }, { c: 3, r: 1, team: 'blue', role: 'FW', ball: true, ring: true }, { c: 5, r: 3, team: 'red', role: 'DF' }, { c: 2, r: 0, team: 'red', role: 'MF' }], arrows: [{ c1: 0, r1: 4, c2: 3, r2: 1, color: '#ffd94d' }] });
+  diagram('dg-kick', { cols: 9, rows: 5, hl: { '1,2': 'kick', '2,2': 'kick', '3,2': 'danger', '1,1': 'kick', '2,0': 'kick' }, pieces: [{ c: 0, r: 2, team: 'blue', role: 'FW', ball: true }, { c: 3, r: 2, team: 'red', role: 'DF' }], balls: [{ c: 6, r: 4 }] });
+  diagram('dg-steal', { cols: 5, rows: 5, cell: 34, hl: { '2,1': 'danger', '2,3': 'danger', '1,2': 'danger', '3,2': 'danger' }, pieces: [{ c: 2, r: 2, team: 'red', role: 'FW', ball: true }, { c: 2, r: 1, team: 'blue', role: 'MF' }, { c: 2, r: 3, team: 'blue', role: 'MF' }, { c: 1, r: 2, team: 'blue', role: 'DF' }, { c: 3, r: 2, team: 'blue', role: 'DF' }, { c: 1, r: 1, team: 'blue', role: 'MF' }], marks: [{ c: 1, r: 1, text: '✕', color: '#ff8080' }] });
+  diagram('dg-offside', { cols: 9, rows: 9, cell: 26, lineRow: 3, offside: ['4,2'], pieces: [{ c: 4, r: 7, team: 'blue', role: 'MF', ball: true }, { c: 4, r: 2, team: 'blue', role: 'FW' }, { c: 7, r: 3, team: 'blue', role: 'FW' }, { c: 1, r: 6, team: 'blue', role: 'MF' }, { c: 3, r: 0, team: 'red', role: 'GK' }, { c: 5, r: 3, team: 'red', role: 'DF' }, { c: 2, r: 5, team: 'red', role: 'DF' }], marks: [{ c: 7, r: 3, text: '○', color: '#b6ffb6' }, { c: 1, r: 6, text: '○', color: '#b6ffb6' }] });
+  diagram('dg-goal', { cols: 9, rows: 4, goalTop: true, hl: { '3,0': 'zone', '4,0': 'zone', '5,0': 'zone', '4,1': 'shot' }, pieces: [{ c: 3, r: 0, team: 'red', role: 'GK' }, { c: 4, r: 2, team: 'blue', role: 'FW', ball: true }, { c: 6, r: 3, team: 'blue', role: 'MF' }], arrows: [{ c1: 4, r1: 2, c2: 4, r2: -1, color: '#7dff9a' }] });
+}
+buildDiagrams();
 newGame();
 </script>
 </body>
